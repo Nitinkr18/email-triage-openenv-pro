@@ -9,6 +9,7 @@ description = "Autonomous email triage agent environment for OpenEnv"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "openenv-core>=0.2.0",
     "fastapi==0.104.1",
     "uvicorn==0.24.0",
     "pydantic==2.5.0",
@@ -17,6 +18,9 @@ dependencies = [
     "openai==1.3.6"
 ]
 
+[project.scripts]
+server = "server.app:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["email_triage_env*"]
+include = ["email_triage_env*", "server*"]
