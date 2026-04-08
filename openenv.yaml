@@ -1,0 +1,165 @@
+metadata:
+  name: email-triage-env
+  version: "1.0.0"
+  namespace: "kaizen/email-triage"
+  description: "Real-world email classification environment where agents triage incoming emails into categories: spam, urgent, follow-up, informational. Tasks scale from simple classification to handling deceptive/phishing patterns."
+  author: "Kaizen Team"
+  license: "MIT"
+
+api:
+  base_url: "http://localhost:8000"
+  endpoints:
+    - path: "/health"
+      method: "GET"
+      description: "Health check"
+    - path: "/ping"
+      method: "GET"
+      description: "Deployment validation"
+    - path: "/reset"
+      method: "POST"
+      description: "Initialize episode"
+      parameters:
+        task:
+          type: "string"
+          enum: ["easy", "medium", "hard"]
+          default: "easy"
+        session_id:
+          type: "string"
+          default: "default"
+        seed:
+          type: "integer"
+          nullable: true
+    - path: "/step"
+      method: "POST"
+      description: "Execute action"
+      body:
+        type: "TriageAction"
+    - path: "/state"
+      method: "GET"
+      description: "Get internal state"
+      parameters:
+        session_id:
+          type: "string"
+          default: "default"
+    - path: "/grade"
+      method: "GET"
+      description: "Get deterministic grader score for current task"
+      parameters:
+        session_id:
+          type: "string"
+          default: "default"
+
+observation_space:
+  type: "object"
+  properties:
+    current_email:
+      description: "Email object being triaged"
+      type: "object"
+      properties:
+        email_id:
+          type: "string"
+          description: "Unique email identifier"
+        sender:
+          type: "string"
+          description: "Sender email address"
+        subject:
+          type: "string"
+          description: "Email subject line"
+        body:
+          type: "string"
+          description: "Email body (truncated to 500 chars)"
+        timestamp:
+          type: "integer"
+          description: "Unix timestamp"
+        has_attachment:
+          type: "boolean"
+        is_flagged:
+          type: "boolean"
+    inbox_remaining:
+      type: "integer"
+      description: "Number of unprocessed emails"
+    correctly_classified:
+      type: "integer"
+      description: "Count of correct classifications so far"
+    total_processed:
+      type: "integer"
+      description: "Total emails classified"
+    task_difficulty:
+      type: "string"
+      enum: ["easy", "medium", "hard"]
+
+action_space:
+  type: "object"
+  required: ["email_id", "category", "confidence"]
+  properties:
+    email_id:
+      type: "string"
+      description: "ID of email being classified"
+    category:
+      type: "string"
+      enum: ["spam", "urgent", "follow_up", "informational"]
+      description: "Classification category"
+    confidence:
+      type: "number"
+      minimum: 0.0
+      maximum: 1.0
+      description: "Confidence level (0.0-1.0)"
+
+reward_space:
+  type: "object"
+  properties:
+    value:
+      type: "number"
+      description: "Scalar reward"
+    breakdown:
+      type: "object"
+      description: "Reward component breakdown"
+
+tasks:
+  - name: "easy"
+    description: "Simple email classification with clear signals"
+    difficulty: "easy"
+    max_steps: 10
+    expected_agents_baseline: 0.85
+    
+  - name: "medium"
+    description: "Classification with partial observability and mixed signals"
+    difficulty: "medium"
+    max_steps: 15
+    expected_agents_baseline: 0.70
+    
+  - name: "hard"
+    description: "Deceptive phishing patterns and nuanced categorization"
+    difficulty: "hard"
+    max_steps: 20
+    expected_agents_baseline: 0.55
+
+deployment:
+  docker:
+    image: "kaizen/email-triage:latest"
+    container_port: 8000
+    healthcheck:
+      path: "/health"
+      interval: 30
+      timeout: 5
+    
+  huggingface:
+    space_name: "kaizen/email-triage-env"
+    tags:
+      - "openenv"
+      - "email-classification"
+      - "real-world-task"
+      - "agent-evaluation"
+
+requirements:
+  - fastapi>=0.104.0
+  - uvicorn>=0.24.0
+  - pydantic>=2.0.0
+  - python>=3.9
+
+notes:
+  - "Deterministic grading ensures reproducible scores"
+  - "Reward shaping provides dense signals throughout episode"
+  - "Repeated action penalties discourage infinite loops"
+  - "Tasks scale difficulty naturally without artificial padding"
+  - "No state leakage across sessions"
